@@ -2,14 +2,14 @@ use crate::games::r#trait::Game;
 use crate::games::utils::line_with_color;
 use crossterm::event;
 use crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
+    KeyCode, KeyEvent,
 };
 use rand::Rng;
-use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Paragraph};
+use ratatui::Terminal;
 use std::time::{Duration, Instant};
 use std::{io, thread};
 

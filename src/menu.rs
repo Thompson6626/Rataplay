@@ -5,8 +5,9 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 use std::io;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout};
 
 pub struct Menu {
     selected_index: u32,
@@ -29,10 +30,31 @@ impl Menu {
         while !self.quit {
             while !self.in_game {
                 terminal.draw(|frame| {
-                    let size = frame.area();
+                    let full_area = frame.area();
 
-                    let block = Block::default()
-                        .title("Game Selector")
+                    // Cyan background
+                    let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
+                    frame.render_widget(bg_block, full_area);
+
+                    // Main centered layout with padding
+                    let layout = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints([
+                            Constraint::Percentage(15),
+                            Constraint::Min(10),
+                            Constraint::Length(3),
+                        ])
+                        .split(full_area);
+
+                    // Inner block for game list
+                    let games_block = Block::default()
+                        .title(Span::styled(
+                            "🎮 Game Selector",
+                            Style::default()
+                                .fg(Color::Black)
+                                .bg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        ))
                         .borders(Borders::ALL)
                         .border_style(Style::default().fg(Color::White));
 
@@ -51,12 +73,13 @@ impl Menu {
                                     game.description(),
                                     Style::default().fg(Color::Gray),
                                 )),
+                                Line::from(""), // Add spacing between items
                             ])
                         })
                         .collect();
 
                     let list = List::new(items)
-                        .block(block)
+                        .block(games_block)
                         .highlight_style(
                             Style::default()
                                 .bg(Color::Blue)
@@ -65,10 +88,17 @@ impl Menu {
                         )
                         .highlight_symbol(">> ");
 
-                    frame.render_stateful_widget(list, size, &mut self.get_list_state());
+                    frame.render_stateful_widget(list, layout[1], &mut self.get_list_state());
+
+                    // Hint at bottom
+                    let hint = Paragraph::new("↑ ↓ to navigate • Enter to launch • q to quit")
+                        .style(Style::default().fg(Color::Black).bg(Color::Cyan))
+                        .alignment(Alignment::Center);
+                    frame.render_widget(hint, layout[2]);
                 })?;
                 self.handle_events()?;
             }
+
             if self.quit {
                 break;
             }
@@ -92,6 +122,7 @@ impl Menu {
         println!("[DEBUG] Menu exited.");
         Ok(())
     }
+
 
     fn get_list_state(&self) -> ListState {
         let mut state = ListState::default();

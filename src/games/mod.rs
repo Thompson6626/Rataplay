@@ -13,6 +13,6 @@ pub fn get_all_games() -> Vec<Box<dyn Game>> {
     vec![
         Box::new(ReactionGame::new()),
         Box::new(VerbalMemory::new()),
-        Box::new(NumberMemory::new())
+        Box::new(NumberMemory::new()),
     ]
 }

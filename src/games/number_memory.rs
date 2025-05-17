@@ -5,6 +5,7 @@ use rand::Rng;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout};
 use ratatui::prelude::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Gauge, Paragraph};
 use ratatui::{Frame, Terminal};
 use std::cmp::PartialEq;
@@ -12,25 +13,42 @@ use std::io;
 use std::io::Stdout;
 use std::time::{Duration, Instant};
 
-/// Represents the different game states.
+/// Represents the different states the game can be in during its execution.
 #[derive(Debug, PartialEq, Eq)]
 enum GameState {
-    Title,   // Initial screen
-    Showing, // Number shown to player
-    Waiting, // Waiting for player input
-    Success, //
-    End,     // Game over (similar to success)
+    /// The initial title screen displayed before the game starts.
+    Title,
+    /// The state in which the number to be remembered is shown to the player.
+    Showing,
+    /// The state in which the game is waiting for the player's input.
+    Waiting,
+    /// The state entered when the player's input matches the shown number.
+    Success,
+    /// The state entered when the game ends due to failure.
+    End,
 }
-/// Represents a memory task in the game.
+
+/// Represents a single session of the number memory game.
+///
+/// In this game, a number is briefly shown to the player, who must then recall and input it.
+/// As the player progresses, the difficulty increases by showing longer numbers.
 pub struct NumberMemory {
+    /// The current state of the game.
     state: GameState,
-    number: Option<String>, // The number to remember
-    answer: Option<String>, // The player's response
+    /// The number currently shown to the player that must be remembered.
+    number: Option<String>,
+    /// The player's input in response to the shown number.
+    answer: Option<String>,
+    /// The current level of difficulty (increases as the player succeeds).
     level: u32,
-    quit: bool, // Whether the player has quit
+    /// Indicates whether the player has chosen to quit the game.
+    quit: bool,
+    /// The timestamp marking when the number started being shown.
     show_start: Option<Instant>,
+    /// The duration for which the number is shown before disappearing.
     showing_duration: Duration,
 }
+
 
 impl Game for NumberMemory {
     fn name(&self) -> &str {
@@ -42,16 +60,25 @@ impl Game for NumberMemory {
     }
 
     fn handle_input(&mut self, key_event: KeyEvent) {
+        let mut pressed = false;
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Esc => match self.state {
                 GameState::Title => self.quit_game(),
-                _ => self.reset_game(),
+                _ => {
+                    self.reset_game();
+                    pressed = true;
+                },
             },
             _ => {}
         }
+        if pressed {
+            return;
+        }
         match self.state {
             GameState::Title => self.show_number(),
-            GameState::Showing => {}
+            GameState::Showing => {
+                // No input is handled during the showing state
+            }
             GameState::Waiting => match key_event.code {
                 KeyCode::Enter => {
                     // Get input from the input bar
@@ -108,7 +135,9 @@ impl Game for NumberMemory {
                 .expect("Failed to render game");
 
             if self.state != GameState::Showing {
-                self.handle_events()?
+                self.handle_events()?;
+            } else {
+                self.check_to_change_waiting();
             }
         }
 
@@ -126,7 +155,7 @@ impl NumberMemory {
             level: 1,
             quit: false,
             show_start: None,
-            showing_duration: Duration::from_millis(4500),
+            showing_duration: Duration::from_millis(1700),
         }
     }
 
@@ -164,111 +193,254 @@ impl NumberMemory {
     }
 
     fn render_showing_screen(&self, frame: &mut Frame) {
-        let size = frame.area();
+        let full_area = frame.area();
 
-        let outer_chunks = Layout::default()
+        // Step 1: Full cyan background
+        let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
+        frame.render_widget(bg_block, full_area);
+
+        // Step 2: Vertical layout with top padding, content, bottom padding
+        let vertical_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(30), // top padding
-                Constraint::Length(5),      // content height
-                Constraint::Percentage(30), // bottom padding
+                Constraint::Percentage(30),
+                Constraint::Length(5),
+                Constraint::Percentage(30),
             ])
-            .split(size);
+            .split(full_area);
 
-        let inner_chunks = Layout::default()
+        // Step 3: Sub-layout for content (status + gauge)
+        let content_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),
-                Constraint::Length(3), // space for gauge
-                Constraint::Length(1),
+                Constraint::Length(1), // top spacing
+                Constraint::Length(1), // status message
+                Constraint::Length(1), // space
+                Constraint::Length(3), // gauge
+                Constraint::Length(1), // bottom spacing
             ])
-            .split(outer_chunks[1]);
+            .split(vertical_layout[1]);
 
-        // "Processing..." text
-        let text = Paragraph::new(
-            self.number
-                .as_ref()
-                .map(|n| n.as_str())
-                .unwrap_or("No number available"),
-        )
-        .alignment(Alignment::Center)
-        .block(
-            Block::default()
-                .borders(Borders::NONE)
-                .style(Style::default().fg(Color::White)),
-        ); // adjust text color
+        // Step 4: Render centered status message
+        let status_message = self.number.as_deref().unwrap_or("No number available");
 
-        frame.render_widget(text, inner_chunks[0]);
+        let message_paragraph = Paragraph::new(Line::from(Span::styled(
+            status_message,
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )))
+        .alignment(Alignment::Center);
 
-        // Compute reversed progress
-        let percent = self
+        frame.render_widget(message_paragraph, content_layout[1]);
+
+        // Step 5: Calculate remaining progress (reversed)
+        let percent_remaining = self
             .show_start
             .map(|start| {
                 let elapsed = start.elapsed().as_secs_f64();
                 let total = self.showing_duration.as_secs_f64();
-                ((total - elapsed) / total).clamp(0.0, 1.0) // reversed
+                ((total - elapsed) / total).clamp(0.0, 1.0)
             })
-            .unwrap_or(1.0); // full if not started
+            .unwrap_or(1.0); // 100% if timer hasn't started
 
-        // Centered gauge, reversed direction
+        // Step 6: Horizontal layout to center the gauge
+        let gauge_row = content_layout[3];
+        let gauge_horizontal_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(20),
+                Constraint::Percentage(60),
+                Constraint::Percentage(20),
+            ])
+            .split(gauge_row);
+
+        // Step 7: Render gauge
         let gauge = Gauge::default()
-            .block(
-                Block::default()
-                    .borders(Borders::NONE)
-                    .title("") // Adjust title if needed
-                    .style(Style::default().bg(Color::Cyan)),
-            ) // Background color of the block
+            .block(Block::default().borders(Borders::NONE))
             .gauge_style(
                 Style::default()
-                    .fg(Color::White) // Foreground color (the bar itself)
-                    .bg(Color::Cyan),
-            ) // Background color (behind the bar)
-            .percent((percent * 100.0) as u16);
+                    .fg(Color::White)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .percent((percent_remaining * 100.0) as u16);
 
-        frame.render_widget(gauge, inner_chunks[1]);
+        frame.render_widget(gauge, gauge_horizontal_layout[1]);
     }
 
     fn render_waiting_screen(&self, frame: &mut Frame) {
-        // render
+        let size = frame.area();
+
+        let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
+        frame.render_widget(bg_block, size); // this paints the entire terminal background
+
+        let vertical_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(40), // top padding
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Percentage(40), // bottom padding
+            ])
+            .split(size);
+
+        // Text color style (black text on cyan)
+        let text_style = Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD);
+
+        let texts = [
+            "What was the number?",
+            "Press enter to submit",
+            self.answer.as_deref().unwrap_or(""), // Option<String> -> &str
+        ];
+
+        for (i, text) in texts.iter().enumerate() {
+            let paragraph = Paragraph::new(Line::from(Span::styled(*text, text_style)))
+                .alignment(Alignment::Center);
+            frame.render_widget(paragraph, vertical_chunks[i + 1]); // skip top padding
+        }
     }
-    fn render_success_screen(&self, frame: &mut Frame) {}
-    fn render_end_screen(&self, frame: &mut Frame) {}
+
+    fn render_success_screen(&self, frame: &mut Frame) {
+        let size = frame.area();
+
+        // Step 1: Fill the whole background with cyan
+        let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
+        frame.render_widget(bg_block, size);
+
+        // Step 2: Vertically center 6 lines (3 labels + 3 values)
+        let vertical_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(30), // top padding
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Percentage(30), // bottom padding
+            ])
+            .split(size);
+
+        // Style for both labels and values
+        let text_style = Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD);
+
+        // Step 3: Render all centered text lines
+        let lines = [
+            "Number",
+            self.number.as_deref().unwrap_or(""),
+            "Your Answer",
+            self.answer.as_deref().unwrap_or(""),
+            "Level",
+            &self.level.to_string(),
+        ];
+
+        for (i, text) in lines.iter().enumerate() {
+            let paragraph = Paragraph::new(Line::from(Span::styled(*text, text_style)))
+                .alignment(Alignment::Center);
+            frame.render_widget(paragraph, vertical_chunks[i + 1]); // +1 to skip top padding
+        }
+    }
+
+    fn render_end_screen(&self, frame: &mut Frame) {
+        let size = frame.area(); // you used `area()` before but it's usually `size()`
+
+        // Step 1: Fill entire background with cyan
+        let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
+        frame.render_widget(bg_block, size);
+
+        // Step 2: Vertically center 6 lines (3 labels + 3 values)
+        let vertical_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(30),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Percentage(30),
+            ])
+            .split(size);
+
+        // Base style for labels and values
+        let base_style = Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD);
+
+        // Crossed-out style for the answer
+        let crossed_style = base_style.add_modifier(Modifier::CROSSED_OUT);
+
+        // Step 3: Render text with appropriate styles
+        let texts = [
+            ("Number", base_style),
+            (self.number.as_deref().unwrap_or(""), base_style),
+            ("Your Answer", base_style),
+            (self.answer.as_deref().unwrap_or(""), crossed_style), // crossed out!
+            ("Level", base_style),
+            (&self.level.to_string(), base_style),
+        ];
+
+        for (i, (text, style)) in texts.iter().enumerate() {
+            let paragraph = Paragraph::new(Line::from(Span::styled(*text, *style)))
+                .alignment(Alignment::Center);
+            frame.render_widget(paragraph, vertical_chunks[i + 1]); // skip top padding
+        }
+    }
 
     fn show_number(&mut self) {
         self.state = GameState::Showing;
         self.show_start = Some(Instant::now());
         self.number = Some(self.generate_random_number());
-        self.answer.as_mut().expect("Should not be None").clear();
+        self.answer = Some(String::new());    
+    }
+
+    fn check_to_change_waiting(&mut self) {
+        if let Some(start_show) = self.show_start {
+            if start_show.elapsed() >= self.showing_duration {
+                self.state = GameState::Waiting;
+            }
+        }
     }
 
     fn generate_random_number(&self) -> String {
-        let mut rng = rand::rng(); // Use the thread-local RNG
-        let mut digits = Vec::with_capacity(self.level as usize); // Pre-allocate capacity for digits
-
-        for _ in 0..self.level {
-            let digit = rng.random_range(0..10); // Generate a number between 0 and 9
-            digits.push(char::from_digit(digit, 10).unwrap()); // Push the digit as a character
-        }
-
-        digits.into_iter().collect()
+        let mut rng = rand::rng();
+        (0..self.level)
+            .map(|_| rng.random_range(0..10).to_string())
+            .collect()
     }
 
     fn init_game(&mut self) {
         self.answer = Some(String::new());
     }
 
-    fn quit_game(&mut self) {
-        self.quit = true;
+    fn reset_common(&mut self) {
         self.state = GameState::Title;
         self.answer = None;
         self.number = None;
+        self.show_start = None;
         self.level = 1;
     }
 
-    fn reset_game(&mut self) {
-        self.state = GameState::Title;
-        self.answer.as_mut().expect("Should be Some").clear();
-        self.number = None;
-        self.level = 1;
+    fn quit_game(&mut self) {
+        self.quit = true;
+        self.reset_common();
     }
+
+    fn reset_game(&mut self) {
+        self.reset_common();
+        self.answer = Some(String::new());
+    }
+
 }

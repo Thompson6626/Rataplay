@@ -2,7 +2,6 @@ use crate::games::Game;
 use crate::games::utils::line_with_color;
 use crossterm::event::{KeyCode, KeyEvent};
 use rand::Rng;
-use rand::seq::SliceRandom;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -12,6 +11,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, Stdout};
+use rand::prelude::{IndexedRandom, IteratorRandom};
 
 enum GameState {
     Title,   // Initial screen
@@ -211,6 +211,7 @@ impl VerbalMemory {
 
         // Score and Lives
         let score_line = format!("Score: {}    Lives: {}", self.score, self.lives);
+
         let score_paragraph = Paragraph::new(score_line)
             .style(Style::default().fg(Color::White).bg(Color::Cyan))
             .alignment(Alignment::Center);
@@ -301,6 +302,7 @@ impl VerbalMemory {
 
         frame.render_widget(paragraph, chunks[1]);
     }
+    
     fn init_words_vec(&mut self) {
         // Already initialized
         if !self.words.is_empty() {
@@ -311,16 +313,20 @@ impl VerbalMemory {
             Ok(words) => self.words = words,
             Err(e) => eprintln!("Failed to load words: {}", e),
         }
+        
         println!("Loaded {} words", self.words.len());
     }
 
     fn assign_random_word_based_on_progress(&mut self) {
-        let range_limit = (self.words_seen.len() / 6) + 1;
-
         let mut rng = rand::rng();
-        let index = rng.random_range(0..range_limit * 6);
 
-        self.word_shown = Some(self.words[index].clone());
+        self.word_shown = if rng.random::<f64>() < 0.7 {
+            // 70% chance: pick from words Vec
+            self.words.choose(&mut rng).cloned()
+        } else {
+            // 30% chance: pick from words_seen HashSet
+            self.words_seen.iter().choose(&mut rng).cloned()
+        };
     }
 
     // .txt file with 1 word per line
@@ -336,34 +342,23 @@ impl VerbalMemory {
                 Err(e) => eprintln!("Error reading line: {}", e),
             }
         }
-        self.shuffle_words();
-
         Ok(words_vec)
     }
 
     fn reset_game(&mut self) {
-        self.to_default();
-        self.shuffle_words();
+        self.clear_progress();
     }
 
     fn quit_game(&mut self) {
-        self.to_default();
+        self.clear_progress();
         self.words.clear();
         self.quit = true;
     }
 
-    fn to_default(&mut self) {
+    fn clear_progress(&mut self) {
         self.words_seen.clear();
         self.lives = 3;
         self.score = 0;
         self.word_shown = None;
-    }
-
-    fn shuffle_words(&mut self) {
-        if self.words.is_empty() {
-            return;
-        }
-        let mut rng = rand::rng();
-        self.words.shuffle(&mut rng);
     }
 }
