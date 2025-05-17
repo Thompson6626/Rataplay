@@ -32,11 +32,11 @@ impl Menu {
                 terminal.draw(|frame| {
                     let full_area = frame.area();
 
-                    // Cyan background
-                    let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
+                    // Default terminal background (no color)
+                    let bg_block = Block::default();
                     frame.render_widget(bg_block, full_area);
 
-                    // Main centered layout with padding
+                    // Layout with header, list, and hint sections
                     let layout = Layout::default()
                         .direction(Direction::Vertical)
                         .constraints([
@@ -46,13 +46,12 @@ impl Menu {
                         ])
                         .split(full_area);
 
-                    // Inner block for game list
+                    // Game list block with a styled title
                     let games_block = Block::default()
                         .title(Span::styled(
                             "🎮 Game Selector",
                             Style::default()
-                                .fg(Color::Black)
-                                .bg(Color::Cyan)
+                                .fg(Color::White)
                                 .add_modifier(Modifier::BOLD),
                         ))
                         .borders(Borders::ALL)
@@ -73,7 +72,7 @@ impl Menu {
                                     game.description(),
                                     Style::default().fg(Color::Gray),
                                 )),
-                                Line::from(""), // Add spacing between items
+                                Line::from(""), // Spacer between items
                             ])
                         })
                         .collect();
@@ -90,9 +89,9 @@ impl Menu {
 
                     frame.render_stateful_widget(list, layout[1], &mut self.get_list_state());
 
-                    // Hint at bottom
+                    // Bottom hint text
                     let hint = Paragraph::new("↑ ↓ to navigate • Enter to launch • q to quit")
-                        .style(Style::default().fg(Color::Black).bg(Color::Cyan))
+                        .style(Style::default().fg(Color::White)) // No background
                         .alignment(Alignment::Center);
                     frame.render_widget(hint, layout[2]);
                 })?;
@@ -119,9 +118,11 @@ impl Menu {
                 self.in_game = false;
             }
         }
+
         println!("[DEBUG] Menu exited.");
         Ok(())
     }
+
 
 
     fn get_list_state(&self) -> ListState {
