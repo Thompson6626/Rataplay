@@ -8,9 +8,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Paragraph};
 use ratatui::{Frame, Terminal};
 use std::collections::HashSet;
-use std::fs::File;
 use std::io;
-use std::io::{BufRead, Stdout};
+use std::io::{Stdout};
 use rand::prelude::{IndexedRandom, IteratorRandom};
 
 enum GameState {
@@ -61,8 +60,8 @@ impl Game for VerbalMemory {
         match self.state {
             GameState::Title => match key_event.code {
                 KeyCode::Enter => {
-                    self.state = GameState::Showing;
                     self.assign_random_word_based_on_progress();
+                    self.state = GameState::Showing;
                 }
                 _ => {}
             },
@@ -122,7 +121,6 @@ impl Game for VerbalMemory {
         }
     }
 
-    // Two optinos
     fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
         self.init_words_vec();
 
@@ -304,18 +302,19 @@ impl VerbalMemory {
     }
     
     fn init_words_vec(&mut self) {
-        // Already initialized
         if !self.words.is_empty() {
             return;
         }
 
-        match self.load_words_to_vec("assets/palabras.txt") {
-            Ok(words) => self.words = words,
-            Err(e) => eprintln!("Failed to load words: {}", e),
-        }
-        
+        let file_content = include_str!("../../assets/palabras.txt");
+        self.words = file_content
+            .lines()
+            .map(|line| line.trim().to_string())
+            .collect();
+
         println!("Loaded {} words", self.words.len());
     }
+
 
     fn assign_random_word_based_on_progress(&mut self) {
         let mut rng = rand::rng();
@@ -329,22 +328,6 @@ impl VerbalMemory {
         };
     }
 
-    // .txt file with 1 word per line
-    fn load_words_to_vec(&mut self, file_path: &str) -> io::Result<Vec<String>> {
-        let mut words_vec = Vec::new();
-
-        let file = File::open(file_path)?;
-        let reader = io::BufReader::new(file);
-
-        for line in reader.lines() {
-            match line {
-                Ok(word) => words_vec.push(word),
-                Err(e) => eprintln!("Error reading line: {}", e),
-            }
-        }
-        Ok(words_vec)
-    }
-
     fn reset_game(&mut self) {
         self.clear_progress();
     }
@@ -352,7 +335,7 @@ impl VerbalMemory {
     fn quit_game(&mut self) {
         self.clear_progress();
         self.words.clear();
-        self.quit = true;
+        self.quit = false;
     }
 
     fn clear_progress(&mut self) {

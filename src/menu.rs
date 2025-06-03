@@ -102,29 +102,19 @@ impl Menu {
                 break;
             }
 
-            println!(
-                "[DEBUG] Launching game: {}",
-                self.selectable_games[self.selected_index as usize].name()
-            );
-
             let game = &mut self.selectable_games[self.selected_index as usize];
             let result = game.run(terminal);
 
             if result.is_err() {
-                println!("[DEBUG] Game returned error, quitting...");
                 self.quit = true;
             } else {
-                println!("[DEBUG] Returned to menu.");
                 self.in_game = false;
             }
         }
 
-        println!("[DEBUG] Menu exited.");
         Ok(())
     }
-
-
-
+    
     fn get_list_state(&self) -> ListState {
         let mut state = ListState::default();
         state.select(Some(self.selected_index as usize));

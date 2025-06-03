@@ -63,7 +63,7 @@ impl Game for NumberMemory {
         let mut pressed = false;
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Esc => match self.state {
-                GameState::Title => self.quit_game(),
+                GameState::Title => self.quit = true,
                 _ => {
                     self.reset_game();
                     pressed = true;
@@ -195,11 +195,9 @@ impl NumberMemory {
     fn render_showing_screen(&self, frame: &mut Frame) {
         let full_area = frame.area();
 
-        // Step 1: Full cyan background
         let bg_block = Block::default().style(Style::default().bg(Color::Cyan));
         frame.render_widget(bg_block, full_area);
 
-        // Step 2: Vertical layout with top padding, content, bottom padding
         let vertical_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -209,7 +207,6 @@ impl NumberMemory {
             ])
             .split(full_area);
 
-        // Step 3: Sub-layout for content (status + gauge)
         let content_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -221,7 +218,6 @@ impl NumberMemory {
             ])
             .split(vertical_layout[1]);
 
-        // Step 4: Render centered status message
         let status_message = self.number.as_deref().unwrap_or("No number available");
 
         let message_paragraph = Paragraph::new(Line::from(Span::styled(
@@ -414,11 +410,23 @@ impl NumberMemory {
         }
     }
 
+    // Generate a random valid number (no trailing 0)
     fn generate_random_number(&self) -> String {
         let mut rng = rand::rng();
-        (0..self.level)
-            .map(|_| rng.random_range(0..10).to_string())
-            .collect()
+
+
+        // b'0'     gives you the ascii value of the character '0'
+        match self.level {
+            0 => String::new(),
+            1 => char::from(b'0' + rng.random_range(0..10)).to_string(),
+            _ => {
+                let first_digit = rng.random_range(1..10); // avoid leading zero
+                let rest: String = (1..self.level)
+                    .map(|_| char::from(b'0' + rng.random_range(0..10)))
+                    .collect();
+                format!("{}{}", first_digit, rest)
+            }
+        }
     }
 
     fn init_game(&mut self) {
@@ -434,8 +442,8 @@ impl NumberMemory {
     }
 
     fn quit_game(&mut self) {
-        self.quit = true;
         self.reset_common();
+        self.quit = false;
     }
 
     fn reset_game(&mut self) {

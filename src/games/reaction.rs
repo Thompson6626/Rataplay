@@ -164,14 +164,19 @@ impl Game for ReactionGame {
                     frame.render_widget(paragraph, chunks[1]);
                 })
                 .expect("Error while rendering game");
+            
+            match self.state {
+                GameState::Active | GameState::Waiting => {
+                    if event::poll(Duration::from_millis(10))? {
+                        self.handle_events()?;
+                    }
 
-            if event::poll(Duration::from_millis(10))? {
-                self.handle_events()?;
+                    self.update();
+
+                    thread::sleep(Duration::from_millis(5));
+                },
+                _ => self.handle_events()?,
             }
-
-            self.update();
-
-            thread::sleep(Duration::from_millis(5));
         }
 
         self.quit = false; // Reset;
@@ -207,7 +212,7 @@ impl ReactionGame {
     fn start_waiting(&mut self) {
         self.state = GameState::Waiting;
         let mut rng = rand::rng();
-        let millis = rng.random_range(2000..4000);
+        let millis = rng.random_range(1800..4000);
         self.wait_until = Some(Instant::now() + Duration::from_millis(millis));
         self.start_time = None;
     }
