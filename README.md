@@ -1,41 +1,48 @@
-# 🧠 Rataplay – Terminal Minigame Collection in Rust
+# Rataplay – Terminal Minigame Collection in Rust
 
-**Rataplay** is a terminal-based minigame collection written in **Rust**, powered by the [`ratatui`](https://github.com/tui-rs/ratatui) TUI framework.
+**Rataplay** is a terminal-based collection of minigames built in **Rust**, using the [`ratatui`](https://github.com/tui-rs/ratatui) TUI framework.
 
-Currently inspired by the classic [Human Benchmark](https://humanbenchmark.com/) games, Rataplay offers a growing suite of minigames that test your reflexes, memory, and attention — all from your terminal.
+It draws inspiration from classic [Human Benchmark](https://humanbenchmark.com/) games, bringing quick reflex and memory challenges to the terminal.
 
 ---
 
-## 🕹 Included Games
+## Included Games
 
 - ⚡ **Reaction Time**  
-  Measure how quickly you respond to a visual signal.
+  Hit a key as fast as you can when the signal turns green.
 
 - 🧠 **Verbal Memory**  
-  Track how many unique words you can recall.
+  Keep track of which words you've seen before.
 
 - 🔢 **Number Memory**  
-  Remember and repeat increasingly long numbers.
+  Memorize and recall increasingly long numbers.
 
 ---
 
-## 🛣️ Roadmap
+## Note
+
+📌 For now, Rataplay only includes games inspired by [Human Benchmark](https://humanbenchmark.com/).  
+Original minigames are planned for future updates.
+
+---
+
+## Roadmap
 
 Planned features and improvements:
 
-- ✨ More original minigames beyond Human Benchmark
-- 💾 Save and display high scores
-- 🎮 Improved keyboard controls and UI polish
-- 🎨 Customizable themes and color schemes
+- New original minigames beyond Human Benchmark
+- High score tracking
+- Improved keyboard controls and UI polish
+- Theme and color customization
 
 ---
 
-## 💡 Why Rataplay?
+## Why Rataplay?
 
-Rataplay is both a fun terminal experience and a learning project. It's designed to:
+- Learn Rust by building something fun
+- Explore terminal UI development with Ratatui
+- Have some fun in terminal every now and then
 
-- Showcase TUI development using Ratatui
-- Offer bite-sized, brainy entertainment in the terminal
-
+---
 
 ![Demo](gifs/Rataplay.gif)
