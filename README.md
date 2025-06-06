@@ -30,7 +30,7 @@ Original minigames are planned for future updates.
 
 Planned features and improvements:
 
-- New original minigames beyond Human Benchmark
+- Minigames beyond Human Benchmark
 - High score tracking
 - Improved keyboard controls and UI polish
 - Theme and color customization
@@ -41,4 +41,4 @@ Planned features and improvements:
 
 - Learn Rust by building something fun
 - Explore terminal UI development with Ratatui
-- Have some fun in terminal every now and then
+- Have some fun in the terminal every now and then
